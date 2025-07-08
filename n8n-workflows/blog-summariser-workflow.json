@@ -1,0 +1,153 @@
+{
+  "nodes": [
+    {
+      "id": "1",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-extractor-llm",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "id": "2",
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Fetch Blog Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "id": "3",
+      "parameters": {
+        "functionCode": "// Extract text content from HTML\nconst cheerio = require('cheerio');\nconst html = $json.data;\n\nif (!html) {\n  return [{\n    json: {\n      error: 'No content found at the URL',\n      content: ''\n    }\n  }];\n}\n\n// Load HTML with cheerio\nconst $ = cheerio.load(html);\n\n// Remove script and style elements\n$('script, style, nav, header, footer, aside, .advertisement, .ads').remove();\n\n// Extract main content - try different selectors\nlet content = '';\nconst contentSelectors = [\n  'article',\n  '.post-content',\n  '.entry-content', \n  '.content',\n  'main',\n  '.post',\n  '.article-content',\n  '.blog-content'\n];\n\nfor (const selector of contentSelectors) {\n  const element = $(selector);\n  if (element.length > 0) {\n    content = element.text().trim();\n    break;\n  }\n}\n\n// Fallback: get body text if no specific content found\nif (!content) {\n  content = $('body').text().trim();\n}\n\n// Clean up the content\ncontent = content\n  .replace(/\\s+/g, ' ')\n  .replace(/\\n\\s*\\n/g, '\\n')\n  .trim();\n\n// Limit content length (for API efficiency)\nif (content.length > 8000) {\n  content = content.substring(0, 8000) + '...';\n}\n\nreturn [{\n  json: {\n    content: content,\n    url: $json.url || '',\n    title: $('title').text().trim() || 'No title found'\n  }\n}];"
+      },
+      "name": "Extract Blog Content",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [600, 300]
+    },
+    {
+      "id": "4",
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "method": "POST",
+        "authentication": "none",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "options": {},
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.OPENAI_API_KEY }}"
+          }
+        ],
+        "bodyParametersJson": "{\n  \"model\": \"gpt-3.5-turbo\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a professional content summarizer. Your task is to create a concise, informative summary of blog content in Urdu. The summary should be 3-5 sentences long, capture the main points, and be written in clear, readable Urdu. Focus on the key insights and important information.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Please summarize this blog post in Urdu:\\n\\nTitle: {{ $json.title }}\\n\\nContent: {{ $json.content }}\"\n    }\n  ],\n  \"max_tokens\": 500,\n  \"temperature\": 0.7\n}"
+      },
+      "name": "Generate Urdu Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 300]
+    },
+    {
+      "id": "5",
+      "parameters": {
+        "functionCode": "// Extract the Urdu summary from OpenAI response\nconst openaiResponse = $json;\n\nif (!openaiResponse.choices || openaiResponse.choices.length === 0) {\n  return [{\n    json: {\n      urduSummary: 'خلاصہ دستیاب نہیں ہے۔ براہ کرم دوبارہ کوشش کریں۔',\n      error: 'No summary generated'\n    }\n  }];\n}\n\nconst urduSummary = openaiResponse.choices[0].message.content.trim();\n\nreturn [{\n  json: {\n    urduSummary: urduSummary,\n    success: true\n  }\n}];"
+      },
+      "name": "Format Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "id": "6",
+      "parameters": {
+        "functionCode": "// Error handling node\nconst error = $json.error || 'Unknown error occurred';\n\nreturn [{\n  json: {\n    urduSummary: 'معذرت، بلاگ کا خلاصہ نہیں بنایا جا سکا۔ براہ کرم یقینی بنائیں کہ URL صحیح ہے اور دوبارہ کوشش کریں۔',\n    error: error,\n    success: false\n  }\n}];"
+      },
+      "name": "Handle Error",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [600, 450]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch Blog Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Blog Content": {
+      "main": [
+        [
+          {
+            "node": "Extract Blog Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Handle Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Blog Content": {
+      "main": [
+        [
+          {
+            "node": "Generate Urdu Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Urdu Summary": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Handle Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "name": "Blog Summariser (Assignment 2)"
+}
