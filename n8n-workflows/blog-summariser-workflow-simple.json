@@ -13,10 +13,11 @@
       "typeVersion": 1,
       "position": [200, 300]
     },
+
     {
       "id": "2",
       "parameters": {
-        "functionCode": "// Simple test response\nconst inputData = $json;\n\nconsole.log('📝 Received data:', JSON.stringify(inputData, null, 2));\n\n// Check if URL is provided\nif (!inputData.url) {\n  return [{\n    json: {\n      error: 'No URL provided',\n      urduSummary: 'کوئی URL فراہم نہیں کیا گیا'\n    }\n  }];\n}\n\n// Return a simple test response\nreturn [{\n  json: {\n    urduSummary: `یہ ایک ٹیسٹ خلاصہ ہے۔ آپ کا URL: ${inputData.url}`,\n    success: true,\n    testMode: true\n  }\n}];"
+        "functionCode": "// Simple test response\nconst inputData = $json;\n\nconsole.log(' Received data:', JSON.stringify(inputData, null, 2));\n\n// Check if URL is provided\nif (!inputData.url) {\n  return [{\n    json: {\n      error: 'No URL provided',\n      urduSummary: 'کوئی URL فراہم نہیں کیا گیا'\n    }\n  }];\n}\n\n// Return a simple test response\nreturn [{\n  json: {\n    urduSummary: `یہ ایک ٹیسٹ خلاصہ ہے۔ آپ کا URL: ${inputData.url}`,\n    success: true,\n    testMode: true\n  }\n}];"
       },
       "name": "Test Response",
       "type": "n8n-nodes-base.function",
@@ -24,6 +25,7 @@
       "position": [400, 300]
     }
   ],
+
   "connections": {
     "Webhook": {
       "main": [
@@ -37,7 +39,8 @@
       ]
     }
   },
+  
   "active": true,
   "settings": {},
-  "name": "Blog Summariser - Simple Test"
+  "name": "Blog Summariser - Simple Testing"
 }

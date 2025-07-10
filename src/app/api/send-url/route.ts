@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
+import { PrismaClient } from '@prisma/client';
 
-// Helper function to extract clean text from HTML
+const prisma = new PrismaClient({
+  log: ['error', 'warn'],
+});
+
 function extractBlogContent(html: string): { content: string; title: string } {
   const $ = cheerio.load(html);
   
-  // Remove unwanted elements
   $('script, style, nav, header, footer, aside, .advertisement, .ads, .sidebar, .comments, .comment, .social-share, .related-posts, .newsletter, .popup, .modal').remove();
   
-  // Try to find the main content using common selectors
   const contentSelectors = [
     'article',
     '.post-content',
@@ -40,7 +42,6 @@ function extractBlogContent(html: string): { content: string; title: string } {
                 $('.article-title').text().trim() ||
                 'Blog Post';
   
-  // Try each selector until we find substantial content
   for (const selector of contentSelectors) {
     const element = $(selector);
     if (element.length > 0) {
@@ -51,19 +52,16 @@ function extractBlogContent(html: string): { content: string; title: string } {
     }
   }
   
-  // Fallback: get body text if no specific content found
   if (!content || content.length < 300) {
     content = $('body').text().trim();
   }
   
-  // Clean up the content
   content = content
     .replace(/\s+/g, ' ')
     .replace(/\n\s*\n/g, '\n')
     .replace(/[^\w\s\.\,\!\?\;\:\-\(\)\[\]\{\}\"\']/g, '')
     .trim();
   
-  // Limit content length for API efficiency
   if (content.length > 10000) {
     content = content.substring(0, 10000) + '...';
   }
@@ -71,7 +69,6 @@ function extractBlogContent(html: string): { content: string; title: string } {
   return { content, title };
 }
 
-// Function to generate English summary using Gemini
 async function generateEnglishSummary(content: string, title: string): Promise<string> {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -139,7 +136,7 @@ Please provide a clear, concise summary in 4-6 sentences that covers the main po
       if (attempt < maxRetries) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`Retrying English summary generation (attempt ${attempt + 1}) due to error:`, message);
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
       }
     }
   }
@@ -148,8 +145,6 @@ Please provide a clear, concise summary in 4-6 sentences that covers the main po
   throw new Error(`Failed to generate English summary after ${maxRetries} attempts. Last error: ${finalMessage}`);
 }
 
-
-// Function to translate English summary to Urdu using Gemini
 async function translateToUrdu(englishSummary: string): Promise<string> {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -216,7 +211,7 @@ Please provide a natural Urdu translation that reads well and conveys the same i
       if (attempt < maxRetries) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`Retrying Urdu translation (attempt ${attempt + 1}) due to error:`, message);
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
       }
     }
   }
@@ -225,22 +220,15 @@ Please provide a natural Urdu translation that reads well and conveys the same i
   throw new Error(`Failed to translate to Urdu after ${maxRetries} attempts. Last error: ${finalMessage}`);
 }
 
-
 export async function POST(req: Request) {
   try {
-    console.log('🔍 API Route called - parsing request body...');
-    
     const body = await req.json();
     const { url } = body;
 
-    console.log('📝 Request data:', { url });
-
     if (!url) {
-      console.log('❌ Missing URL in request');
       return NextResponse.json({ error: 'Missing URL parameter' }, { status: 400 });
     }
 
-    // Validate URL format
     let validatedUrl: URL;
     try {
       validatedUrl = new URL(url);
@@ -248,15 +236,11 @@ export async function POST(req: Request) {
         throw new Error('Invalid protocol');
       }
     } catch {
-      console.log('❌ Invalid URL format:', url);
       return NextResponse.json({ error: 'Invalid URL format. Please provide a valid HTTP or HTTPS URL.' }, { status: 400 });
     }
 
-    console.log('🚀 Fetching blog content from:', url);
-
-    // Step 1: Fetch the blog content
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     let html: string;
     try {
@@ -284,10 +268,8 @@ export async function POST(req: Request) {
       }
 
       html = await response.text();
-      console.log('✅ Successfully fetched blog HTML');
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      console.error('❌ Error fetching blog:', fetchError);
       const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
       return NextResponse.json({
         error: 'Failed to fetch blog content',
@@ -295,31 +277,19 @@ export async function POST(req: Request) {
       }, { status: 500 });
     }
 
-    // Step 2: Extract clean content from HTML
-    console.log('🔍 Extracting blog content...');
     const { content, title } = extractBlogContent(html);
     
     if (content.length < 100) {
-      console.log('❌ Content too short or not extractable');
       return NextResponse.json({
         error: 'Content too short or not extractable',
         details: 'The blog content could not be properly extracted. Please ensure the URL points to a valid blog post.',
       }, { status: 400 });
     }
 
-    console.log('✅ Successfully extracted blog content');
-    console.log('📝 Title:', title);
-    console.log('📝 Content length:', content.length);
-
-    // Step 3: Generate English summary using Gemini
-    console.log('🧠 Generating English summary...');
     let englishSummary: string;
     try {
       englishSummary = await generateEnglishSummary(content, title);
-      console.log('✅ English summary generated successfully');
-      console.log('📝 Summary preview:', englishSummary.substring(0, 100) + '...');
     } catch (summaryError) {
-      console.error('❌ Error generating summary:', summaryError);
       const errorMessage = summaryError instanceof Error ? summaryError.message : 'Unknown error';
       return NextResponse.json({
         error: 'Failed to generate English summary',
@@ -327,15 +297,10 @@ export async function POST(req: Request) {
       }, { status: 500 });
     }
 
-    // Step 4: Translate to Urdu using Gemini
-    console.log('🌍 Translating to Urdu...');
     let urduSummary: string;
     try {
       urduSummary = await translateToUrdu(englishSummary);
-      console.log('✅ Urdu translation completed successfully');
-      console.log('📝 Urdu preview:', urduSummary.substring(0, 100) + '...');
     } catch (translationError) {
-      console.error('❌ Error translating to Urdu:', translationError);
       const errorMessage = translationError instanceof Error ? translationError.message : 'Unknown error';
       return NextResponse.json({
         error: 'Failed to translate to Urdu',
@@ -343,14 +308,33 @@ export async function POST(req: Request) {
       }, { status: 500 });
     }
 
-    // Step 5: Return the results
-    console.log('✅ Successfully processed blog URL');
+    let savedSummary = null;
+    let databaseStatus = 'failed';
+    try {
+      savedSummary = await prisma.summary.create({
+        data: {
+          url: url,
+          title: title,
+          englishSummary: englishSummary,
+          urduSummary: urduSummary,
+        },
+      });
+      databaseStatus = 'success';
+      console.log('Summary saved successfully:', savedSummary.id);
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      databaseStatus = 'failed';
+    }
+
     const result = {
       success: true,
       originalUrl: url,
       title: title,
       englishSummary: englishSummary,
       urduSummary: urduSummary,
+      savedToDatabase: savedSummary ? true : false,
+      databaseStatus: databaseStatus,
+      summaryId: savedSummary?.id || null,
       metadata: {
         contentLength: content.length,
         processingTime: new Date().toISOString(),
@@ -360,7 +344,6 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
 
   } catch (error) {
-    console.error('❌ Server Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return NextResponse.json({
       error: 'Internal Server Error',
@@ -368,10 +351,11 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString(),
       stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined,
     }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-// Handle unsupported HTTP methods
 export async function GET() {
   return NextResponse.json({ error: 'Method not allowed. Use POST instead.' }, { status: 405 });
 }

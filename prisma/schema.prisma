@@ -1,0 +1,25 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  // Remove the custom output path for now to avoid issues
+  // output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Summary {
+  id             String   @id @default(uuid())
+  url            String
+  title          String?  // Optional title field
+  englishSummary String   // Match your code's field names
+  urduSummary    String   // Match your code's field names
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("summaries") // Optional: customize table name
+}
