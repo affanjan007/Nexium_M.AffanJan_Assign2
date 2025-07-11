@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { PrismaClient } from '@prisma/client';
+import connectToDatabase from '@/lib/mongoose';
+import BlogText from '@/models/BlogText';
+
 
 const prisma = new PrismaClient({
   log: ['error', 'warn'],
@@ -278,6 +281,24 @@ export async function POST(req: Request) {
     }
 
     const { content, title } = extractBlogContent(html);
+
+    try {
+      await connectToDatabase();
+
+      const existing = await BlogText.findOne({ url });
+      if (!existing) {
+        await BlogText.create({
+          url,
+          fullText: content,
+        });
+        console.log('Full blog text saved to MongoDB.');
+      } else {
+        console.log('Blog content already exists in MongoDB.');
+      }
+    } catch (mongoError) {
+      console.error('Error saving to MongoDB:', mongoError);
+    }
+
     
     if (content.length < 100) {
       return NextResponse.json({
