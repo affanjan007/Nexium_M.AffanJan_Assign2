@@ -1,0 +1,3 @@
+github: https://github.com/affanjan007/Nexium_M.AffanJan_Assign2
+
+hosting on vercel: https://nexium-m-affan-jan-assign2-p573.vercel.app/
