@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Blog Summarizer with English Summary + Urdu Translation
 
-## Getting Started
+This project is a full-stack application that extracts, summarizes, and translates blog content using Google Gemini and stores results in Supabase and MongoDB.
 
-First, run the development server:
+Features:
+* Blog URL input → Extracts full blog content using `n8n` scraping.
+* English Summary → Generated using Google Gemini API.
+* Urdu Translation → Summary translated to fluent Urdu using Gemini.
+* Storage:
+  * Supabase PostgreSQL → Stores summaries (URL, title, summaries).
+  * MongoDB → Stores full raw extracted blog text.
 
-```bash
+
+Tech Stack:
+* Frontend: Next.js 14 (App Router)
+* Backend: Node.js + Prisma 
+* Language Model: Google Gemini API
+* Scraping Workflow: n8n.io
+* Databases:
+  * Supabase – PostgreSQL for structured summary storage
+  * MongoDB Atlas – For full blog content
+
+
+How It Works:
+1. You enter a blog URL in the frontend.
+2. `n8n` scrapes the blog page and returns the HTML.
+3. The extracted content is sent to Google Gemini for summarization.
+4. The English summary is translated into Urdu using Gemini again.
+5. Results are saved:
+   * English + Urdu summaries → Supabase
+   * Full blog content → MongoDB
+
+
+How to Run:
+
+1.  Start `n8n` locally
+
+Make sure you have [n8n](https://n8n.io/) installed.
+
+n8n start
+
+> Runs at: [http://localhost:5678](http://localhost:5678)
+
+Ensure your scraping workflow is active and working.
+
+2. Start your Next.js App
+
+Install dependencies:
+
+npm install
+
+Start development server:
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> Runs at: [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Environment Variables:
+Create a `.env` file and add:
+GEMINI_API_KEY=your_google_gemini_api_key
+DATABASE_URL=your_supabase_postgres_url
+MONGODB_URI=your_mongo_connection_string
 
-## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+Project Structure:
+/app/api/send-url/route.ts      → Main API logic
+/lib/quotes.ts                  → Quote fetching (if any)
+/components/QuoteDisplay.tsx    → Display summaries
+/prisma/schema.prisma           → Supabase DB schema
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
